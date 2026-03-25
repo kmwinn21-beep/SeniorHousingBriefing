@@ -1,0 +1,14 @@
+{
+  "briefings": [
+    {
+      "id": "2026-03-25",
+      "date": "2026-03-25",
+      "title": "Senior Housing News Daily Briefing — March 25, 2026",
+      "file": "briefings/2026-03-25.html",
+      "summary": "Capital markets activity picks up as interest rates stabilize; workforce challenges persist across assisted living operators; two major REIT portfolios trade hands.",
+      "categories": ["Finance & Capital Markets", "Workforce", "Development", "Mergers & Acquisitions"],
+      "sources": ["Senior Housing News", "McKnight's Senior Living", "LeadingAge", "NIC MAP Vision"],
+      "companies": ["Welltower", "Sunrise Senior Living", "Brookdale Senior Living", "Ventas", "LCS", "Atria Senior Living"]
+    }
+  ]
+}

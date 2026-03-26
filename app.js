@@ -1,60 +1,61 @@
 /**
- * Senior Housing News Daily Briefings
- * app.js — core application logic
+ * Senior Housing News Daily Briefings — app.js
  *
  * Data flow:
- *  1. On load, fetch briefings/manifest.json
- *  2. Populate filter dropdowns from manifest metadata
- *  3. Render sidebar list (sorted newest first)
- *  4. Auto-load the most recent briefing into main content
- *  5. Re-filter list on any search/filter change
- *  6. On list item click, fetch & render that briefing's HTML file
+ *  1. Fetch briefings/manifest.json
+ *  2. Populate sidebar filter dropdowns from manifest metadata
+ *  3. Render sidebar list sorted newest → oldest
+ *  4. Auto-load the most recent briefing
+ *  5. Tags at the bottom of each briefing are clickable filter buttons
+ *     that sync with the sidebar dropdowns and re-filter the list
  */
 
 'use strict';
 
-// ── State ──────────────────────────────────────────────────────────────────
+// ── State ───────────────────────────────────────────────────────────────────
 const state = {
-  allBriefings: [],       // full manifest array
-  filtered: [],           // after filters applied
-  activeId: null,         // currently displayed briefing id
+  allBriefings: [],
+  filtered:     [],
+  activeId:     null,
   filters: {
-    search: '',
-    year: '',
-    month: '',
+    search:   '',
+    year:     '',
+    month:    '',
     category: '',
-    source: '',
-    company: '',
+    source:   '',
+    company:  '',
   },
 };
 
-// ── DOM refs ───────────────────────────────────────────────────────────────
+// ── DOM refs ────────────────────────────────────────────────────────────────
 const $ = id => document.getElementById(id);
-const searchInput      = $('search-input');
-const searchClear      = $('search-clear');
-const filterYear       = $('filter-year');
-const filterMonth      = $('filter-month');
-const filterCategory   = $('filter-category');
-const filterSource     = $('filter-source');
-const filterCompany    = $('filter-company');
-const clearFiltersBtn  = $('clear-filters-btn');
-const briefingsList    = $('briefings-list');
-const resultsCount     = $('results-count');
-const briefingCount    = $('briefing-count');
-const contentLoading   = $('content-loading');
+const searchInput       = $('search-input');
+const searchClear       = $('search-clear');
+const filterYear        = $('filter-year');
+const filterMonth       = $('filter-month');
+const filterCategory    = $('filter-category');
+const filterSource      = $('filter-source');
+const filterCompany     = $('filter-company');
+const clearFiltersBtn   = $('clear-filters-btn');
+const briefingsList     = $('briefings-list');
+const resultsCount      = $('results-count');
+const briefingCount     = $('briefing-count');
+const contentLoading    = $('content-loading');
 const briefingContainer = $('briefing-container');
-const briefingBody     = $('briefing-body');
+const briefingBody      = $('briefing-body');
 const briefingDateBadge = $('briefing-date-badge');
-const briefingTags     = $('briefing-tags');
-const emptyState       = $('empty-state');
-const btnResetEmpty    = $('btn-reset-empty');
+const briefingTagsEl    = $('briefing-tags');
+const emptyState        = $('empty-state');
+const btnResetEmpty     = $('btn-reset-empty');
+const sidebar           = $('sidebar');
+const sidebarToggle     = $('sidebar-toggle');
+const sidebarOverlay    = $('sidebar-overlay');
 
-// ── Helpers ────────────────────────────────────────────────────────────────
+// ── Helpers ─────────────────────────────────────────────────────────────────
 const MONTHS = ['January','February','March','April','May','June',
                 'July','August','September','October','November','December'];
 
 function formatDate(dateStr) {
-  // dateStr: "YYYY-MM-DD"
   const [y, m, d] = dateStr.split('-');
   return `${MONTHS[parseInt(m,10)-1]} ${parseInt(d,10)}, ${y}`;
 }
@@ -62,6 +63,12 @@ function formatDate(dateStr) {
 function formatDateShort(dateStr) {
   const [y, m, d] = dateStr.split('-');
   return `${MONTHS[parseInt(m,10)-1].slice(0,3)} ${parseInt(d,10)}, ${y}`;
+}
+
+function esc(str) {
+  return String(str)
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 
 function unique(arr) {
@@ -80,13 +87,12 @@ function collectYears() {
   return unique(state.allBriefings.map(b => b.date.slice(0,4)));
 }
 
-// ── Fetch manifest ─────────────────────────────────────────────────────────
+// ── Fetch manifest ───────────────────────────────────────────────────────────
 async function loadManifest() {
   try {
     const res = await fetch('briefings/manifest.json?_=' + Date.now());
     if (!res.ok) throw new Error('Failed to load manifest');
     const data = await res.json();
-    // Sort newest first
     state.allBriefings = (data.briefings || []).sort((a, b) =>
       b.date.localeCompare(a.date)
     );
@@ -96,67 +102,97 @@ async function loadManifest() {
   }
 }
 
-// ── Populate filter dropdowns ──────────────────────────────────────────────
+// ── Populate sidebar dropdowns ───────────────────────────────────────────────
 function populateFilters() {
-  // Year
   const years = collectYears();
   filterYear.innerHTML = '<option value="">All Years</option>' +
     years.reverse().map(y => `<option value="${y}">${y}</option>`).join('');
 
-  // Category
   const cats = collectFromManifest('categories');
   filterCategory.innerHTML = '<option value="">All Categories</option>' +
     cats.map(c => `<option value="${esc(c)}">${esc(c)}</option>`).join('');
 
-  // Source
   const sources = collectFromManifest('sources');
   filterSource.innerHTML = '<option value="">All Sources</option>' +
     sources.map(s => `<option value="${esc(s)}">${esc(s)}</option>`).join('');
 
-  // Company
   const companies = collectFromManifest('companies');
   filterCompany.innerHTML = '<option value="">All Companies</option>' +
     companies.map(c => `<option value="${esc(c)}">${esc(c)}</option>`).join('');
 
-  // Total count
-  briefingCount.textContent = `${state.allBriefings.length} Briefing${state.allBriefings.length !== 1 ? 's' : ''}`;
+  briefingCount.textContent =
+    `${state.allBriefings.length} Briefing${state.allBriefings.length !== 1 ? 's' : ''}`;
 }
 
-// ── Filter logic ───────────────────────────────────────────────────────────
+// ── Highlight active sidebar selects ────────────────────────────────────────
+function updateSidebarActiveStates() {
+  filterYear.classList.toggle('filter-active',     !!state.filters.year);
+  filterMonth.classList.toggle('filter-active',    !!state.filters.month);
+  filterCategory.classList.toggle('filter-active', !!state.filters.category);
+  filterSource.classList.toggle('filter-active',   !!state.filters.source);
+  filterCompany.classList.toggle('filter-active',  !!state.filters.company);
+}
+
+// ── Highlight active tag buttons ─────────────────────────────────────────────
+function updateTagActiveStates() {
+  if (!briefingTagsEl) return;
+  briefingTagsEl.querySelectorAll('.briefing-tag').forEach(tag => {
+    const type  = tag.dataset.filterType;
+    const value = tag.dataset.filterValue;
+    let isActive = false;
+    if (type === 'category') isActive = state.filters.category === value;
+    if (type === 'source')   isActive = state.filters.source   === value;
+    if (type === 'company')  isActive = state.filters.company  === value;
+    tag.classList.toggle('tag-active', isActive);
+    tag.setAttribute('aria-pressed', isActive ? 'true' : 'false');
+  });
+}
+
+// ── Apply a filter (from tag click or sidebar) ───────────────────────────────
+function setFilter(type, value) {
+  if (type === 'category') {
+    state.filters.category = state.filters.category === value ? '' : value;
+    filterCategory.value   = state.filters.category;
+  } else if (type === 'source') {
+    state.filters.source = state.filters.source === value ? '' : value;
+    filterSource.value   = state.filters.source;
+  } else if (type === 'company') {
+    state.filters.company = state.filters.company === value ? '' : value;
+    filterCompany.value   = state.filters.company;
+  }
+  applyFilters();
+}
+
+// ── Filter logic ─────────────────────────────────────────────────────────────
 function applyFilters() {
   const { search, year, month, category, source, company } = state.filters;
   const q = search.toLowerCase().trim();
 
   state.filtered = state.allBriefings.filter(b => {
-    if (year   && b.date.slice(0,4) !== year)     return false;
-    if (month  && b.date.slice(5,7) !== month)    return false;
+    if (year     && b.date.slice(0,4) !== year)               return false;
+    if (month    && b.date.slice(5,7) !== month)              return false;
     if (category && !(b.categories || []).includes(category)) return false;
     if (source   && !(b.sources    || []).includes(source))   return false;
     if (company  && !(b.companies  || []).includes(company))  return false;
     if (q) {
-      const searchable = [
-        b.title,
-        b.date,
+      const blob = [
+        b.title, b.date,
         ...(b.categories || []),
         ...(b.sources    || []),
         ...(b.companies  || []),
         b.summary || '',
       ].join(' ').toLowerCase();
-      if (!searchable.includes(q)) return false;
+      if (!blob.includes(q)) return false;
     }
     return true;
   });
 
+  updateSidebarActiveStates();
+  updateTagActiveStates();
   renderList();
 }
 
-// ── Render sidebar list ────────────────────────────────────────────────────
-function esc(str) {
-  return String(str)
-    .replace(/&/g,'&amp;').replace(/</g,'&lt;')
-    .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-}
-
+// ── Render sidebar list ──────────────────────────────────────────────────────
 function renderList() {
   resultsCount.textContent = state.filtered.length;
 
@@ -168,24 +204,32 @@ function renderList() {
 
   briefingsList.innerHTML = state.filtered.map(b => {
     const active = b.id === state.activeId ? ' active' : '';
-    const cats   = (b.categories || []).slice(0,3);
+    const cats   = (b.categories || []).slice(0, 3);
     return `
       <li class="briefing-list-item${active}" data-id="${esc(b.id)}" role="button" tabindex="0"
           aria-label="View briefing for ${esc(formatDate(b.date))}">
         <div class="bli-date">${esc(formatDateShort(b.date))}</div>
         <div class="bli-title">${esc(b.title)}</div>
-        ${cats.length ? `<div class="bli-cats">${cats.map(c => `<span class="bli-cat-tag">${esc(c)}</span>`).join('')}</div>` : ''}
+        ${cats.length ? `<div class="bli-cats">${cats.map(c =>
+          `<span class="bli-cat-tag">${esc(c)}</span>`).join('')}</div>` : ''}
       </li>`.trim();
   }).join('');
 
-  // Re-attach click handlers
   briefingsList.querySelectorAll('.briefing-list-item').forEach(el => {
-    el.addEventListener('click', () => loadBriefing(el.dataset.id));
-    el.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') loadBriefing(el.dataset.id); });
+    el.addEventListener('click', () => {
+      loadBriefing(el.dataset.id);
+      if (isMobile()) closeSidebar();
+    });
+    el.addEventListener('keydown', e => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        loadBriefing(el.dataset.id);
+        if (isMobile()) closeSidebar();
+      }
+    });
   });
 }
 
-// ── Fetch & render a briefing ──────────────────────────────────────────────
+// ── Fetch & render a briefing ────────────────────────────────────────────────
 async function loadBriefing(id) {
   if (state.activeId === id) return;
   state.activeId = id;
@@ -193,12 +237,10 @@ async function loadBriefing(id) {
   const meta = state.allBriefings.find(b => b.id === id);
   if (!meta) return;
 
-  // Update active state in list
   briefingsList.querySelectorAll('.briefing-list-item').forEach(el => {
     el.classList.toggle('active', el.dataset.id === id);
   });
 
-  // Show loading
   showLoading();
 
   try {
@@ -218,28 +260,39 @@ async function loadBriefing(id) {
 }
 
 function renderBriefing(meta, html) {
-  // Date badge
   briefingDateBadge.textContent = formatDate(meta.date);
 
-  // Tags
   const tags = [
-    ...(meta.categories || []).map(c => `<span class="briefing-tag cat">${esc(c)}</span>`),
-    ...(meta.sources    || []).map(s => `<span class="briefing-tag source">${esc(s)}</span>`),
-    ...(meta.companies  || []).map(c => `<span class="briefing-tag company">${esc(c)}</span>`),
+    ...(meta.categories || []).map(c =>
+      `<button class="briefing-tag cat" data-filter-type="category"
+        data-filter-value="${esc(c)}" aria-pressed="false" title="Filter by category: ${esc(c)}">${esc(c)}</button>`),
+    ...(meta.sources || []).map(s =>
+      `<button class="briefing-tag source" data-filter-type="source"
+        data-filter-value="${esc(s)}" aria-pressed="false" title="Filter by source: ${esc(s)}">${esc(s)}</button>`),
+    ...(meta.companies || []).map(c =>
+      `<button class="briefing-tag company" data-filter-type="company"
+        data-filter-value="${esc(c)}" aria-pressed="false" title="Filter by company: ${esc(c)}">${esc(c)}</button>`),
   ];
-  briefingTags.innerHTML = tags.join('');
+  briefingTagsEl.innerHTML = tags.join('');
 
-  // Strip the metadata <script> tag if present, inject the rest
-  const stripped = html.replace(/<script[^>]*id="briefing-meta"[^>]*>[\s\S]*?<\/script>/i, '');
+  briefingTagsEl.querySelectorAll('.briefing-tag').forEach(btn => {
+    btn.addEventListener('click', () => {
+      setFilter(btn.dataset.filterType, btn.dataset.filterValue);
+    });
+  });
+
+  updateTagActiveStates();
+
+  const stripped = html.replace(
+    /<script[^>]*id="briefing-meta"[^>]*>[\s\S]*?<\/script>/i, ''
+  );
   briefingBody.innerHTML = stripped;
 
   showBriefing();
-
-  // Scroll main content to top
-  document.getElementById('main-content').scrollTo({ top: 0, behavior: 'smooth' });
+  $('main-content').scrollTo({ top: 0, behavior: 'smooth' });
 }
 
-// ── Show/hide states ───────────────────────────────────────────────────────
+// ── Show / hide states ───────────────────────────────────────────────────────
 function showLoading() {
   contentLoading.style.display    = 'flex';
   briefingContainer.style.display = 'none';
@@ -258,7 +311,44 @@ function showEmptyState() {
   emptyState.style.display        = 'flex';
 }
 
-// ── Event listeners ────────────────────────────────────────────────────────
+// ── Mobile sidebar ───────────────────────────────────────────────────────────
+function isMobile() { return window.innerWidth <= 700; }
+
+function openSidebar() {
+  sidebar.classList.add('open');
+  sidebarToggle.classList.add('is-open');
+  sidebarToggle.setAttribute('aria-expanded', 'true');
+  sidebarOverlay.classList.add('visible');
+  document.body.style.overflow = 'hidden';
+}
+
+function closeSidebar() {
+  sidebar.classList.remove('open');
+  sidebarToggle.classList.remove('is-open');
+  sidebarToggle.setAttribute('aria-expanded', 'false');
+  sidebarOverlay.classList.remove('visible');
+  document.body.style.overflow = '';
+}
+
+sidebarToggle.addEventListener('click', () => {
+  sidebar.classList.contains('open') ? closeSidebar() : openSidebar();
+});
+
+sidebarOverlay.addEventListener('click', closeSidebar);
+
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape' && sidebar.classList.contains('open')) closeSidebar();
+});
+
+window.addEventListener('resize', () => {
+  if (!isMobile()) {
+    sidebar.classList.remove('open');
+    sidebarOverlay.classList.remove('visible');
+    document.body.style.overflow = '';
+  }
+});
+
+// ── Sidebar filter event listeners ──────────────────────────────────────────
 searchInput.addEventListener('input', () => {
   state.filters.search = searchInput.value;
   searchClear.classList.toggle('visible', searchInput.value.length > 0);
@@ -266,7 +356,7 @@ searchInput.addEventListener('input', () => {
 });
 
 searchClear.addEventListener('click', () => {
-  searchInput.value = '';
+  searchInput.value    = '';
   state.filters.search = '';
   searchClear.classList.remove('visible');
   applyFilters();
@@ -280,30 +370,25 @@ filterCompany.addEventListener('change',  () => { state.filters.company  = filte
 
 function resetAllFilters() {
   state.filters = { search: '', year: '', month: '', category: '', source: '', company: '' };
-  searchInput.value = '';
-  searchClear.classList.remove('visible');
-  filterYear.value = '';
-  filterMonth.value = '';
+  searchInput.value    = '';
+  filterYear.value     = '';
+  filterMonth.value    = '';
   filterCategory.value = '';
-  filterSource.value = '';
-  filterCompany.value = '';
+  filterSource.value   = '';
+  filterCompany.value  = '';
+  searchClear.classList.remove('visible');
   applyFilters();
-  // Reload the most recent briefing if there is one
-  if (state.allBriefings.length > 0) {
-    loadBriefing(state.allBriefings[0].id);
-  }
+  if (state.allBriefings.length > 0) loadBriefing(state.allBriefings[0].id);
 }
 
 clearFiltersBtn.addEventListener('click', resetAllFilters);
-btnResetEmpty.addEventListener('click', resetAllFilters);
+btnResetEmpty.addEventListener('click',   resetAllFilters);
 
-// ── Init ───────────────────────────────────────────────────────────────────
+// ── Init ─────────────────────────────────────────────────────────────────────
 async function init() {
   await loadManifest();
   populateFilters();
   applyFilters();
-
-  // Auto-load the most recent briefing
   if (state.filtered.length > 0) {
     loadBriefing(state.filtered[0].id);
   } else {

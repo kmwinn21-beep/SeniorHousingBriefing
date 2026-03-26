@@ -10,6 +10,11 @@
 
   <header class="site-header">
     <div class="header-inner">
+      <button class="sidebar-toggle" id="sidebar-toggle" aria-label="Toggle sidebar" aria-expanded="false" aria-controls="sidebar">
+        <span class="burger-bar"></span>
+        <span class="burger-bar"></span>
+        <span class="burger-bar"></span>
+      </button>
       <div class="header-brand">
         <svg class="header-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
@@ -25,6 +30,8 @@
       </div>
     </div>
   </header>
+
+  <div class="sidebar-overlay" id="sidebar-overlay" aria-hidden="true"></div>
 
   <div class="app-layout">
 
@@ -117,9 +124,12 @@
       <div class="briefing-container" id="briefing-container" style="display:none;">
         <div class="briefing-header-bar">
           <div class="briefing-date-badge" id="briefing-date-badge"></div>
-          <div class="briefing-tags" id="briefing-tags"></div>
         </div>
         <div class="briefing-body" id="briefing-body"></div>
+        <div class="briefing-tags-footer" id="briefing-tags-footer">
+          <span class="tags-footer-label">Filter by tag:</span>
+          <div class="briefing-tags" id="briefing-tags"></div>
+        </div>
       </div>
       <div class="empty-state" id="empty-state" style="display:none;">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">

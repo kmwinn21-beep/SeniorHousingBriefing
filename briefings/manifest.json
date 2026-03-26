@@ -12,3 +12,17 @@
     }
   ]
 }
+{
+  "briefings": [
+    {
+      "id": "2026-03-26",
+      "date": "2026-03-26",
+      "title": "Senior Housing Morning Briefing — March 25, 2026",
+      "file": "briefings/2026-03-25.html",
+      "summary": "Test.",
+      "categories": ["Top Headlines", "HR/Workforce/Labor", "Deals & Transactions"],
+      "sources": ["Senior Housing News", "McKnight's Senior Living", "McKnight's LTC News", "AHCA/NCAL", "Berkadia", "Seniors Housing Business"],
+      "companies": ["Sonida Senior Living", "CNL Healthcare Properties", "CMS", "National Healthcare Properties", "Discovery Senior Living", "Hunt Midwest", "Thrive Senior Living"]
+    }
+  ]
+}
